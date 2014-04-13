@@ -61,6 +61,9 @@ def process_set(set_name)
   card_urls = MTGExtractor::SetExtractor.new(set_name).get_card_urls
 
   card_urls.each_with_index do |url, index|
+    if /multiverseid=(\d+)/=~url then
+        next if card_already_exists?(multiverse_id: $~[1])
+    end
     index += 1
     extractor = MTGExtractor::CardExtractor.new(url)
     card_details = extractor.get_card_details
@@ -151,8 +154,9 @@ def download_card_image(card, set)
 end
 
 def card_already_exists?(card_data)
-  name = card_data[:name]
-  multiverse_id = card_data[:multiverse_id]
+  sh={}
+  sh[:name]=card_data[:name] if card_data[:name]
+  sh[:multiverse_id]=card_data[:multiverse_id] if card_data[:multiverse_id]
   # Because searching by oracle text has been unreliable, the only unique identifiers
   # we can use here is card name and multiverse_id. Due to the fact that multipart
   # cards have the same multiverse_id, we should only allow a maximum of 2 copies of
@@ -161,11 +165,11 @@ def card_already_exists?(card_data)
   #
   # Although this isn't technically reliable either, it still works better than searching
   # by oracle text
-  if name.match(/\/\//)
+  if sh[:name] and sh[:name].match(/\/\//)
     # It's a multipart card. We can only allow 2 of these multiverse_ids to exist
-    MtgCard.where(:name => name, :multiverse_id => multiverse_id).count > 1
+    MtgCard.where(sh).count > 1
   else
     # Not a multipart card, only 1 copy is allowed
-    MtgCard.where(:name => name, :multiverse_id => multiverse_id).count > 0
+    MtgCard.where(sh).count > 0
   end
 end
